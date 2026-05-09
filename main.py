@@ -9,17 +9,12 @@ import json
 import cv2
 import tempfile
 
-# ----------------------------
-# TESSERACT PATH (WINDOWS ONLY)
-# ----------------------------
-# Uncomment and set your path if needed
-
+# If using Windows, uncomment and give your Tesseract path
 # pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-# ----------------------------
-# PAGE CONFIG
-# ----------------------------
-
+# ----------------------------------
+# PAGE SETTINGS
+# ----------------------------------
 st.set_page_config(
     page_title="Multi-Modal Translator Studio",
     layout="wide"
@@ -29,10 +24,9 @@ st.title("🌍 Multi-Modal Translator Studio")
 
 translator = Translator()
 
-# ----------------------------
+# ----------------------------------
 # LANGUAGE OPTIONS
-# ----------------------------
-
+# ----------------------------------
 languages = {
     "English": "en",
     "Hindi": "hi",
@@ -43,42 +37,37 @@ languages = {
     "Kannada": "kn"
 }
 
-# ----------------------------
+# ----------------------------------
 # HISTORY FILE
-# ----------------------------
-
+# ----------------------------------
 HISTORY_FILE = "history.json"
 
 if not os.path.exists(HISTORY_FILE):
     with open(HISTORY_FILE, "w") as f:
         json.dump([], f)
 
-# ----------------------------
-# SAVE HISTORY FUNCTION
-# ----------------------------
-
+# ----------------------------------
+# SAVE HISTORY
+# ----------------------------------
 def save_history(input_text, translated_text, lang):
-
-    data = {
-        "input": input_text,
-        "translated": translated_text,
-        "language": lang
-    }
-
+    
     with open(HISTORY_FILE, "r") as f:
         history = json.load(f)
 
-    history.append(data)
+    history.append({
+        "input": input_text,
+        "translated": translated_text,
+        "language": lang
+    })
 
     with open(HISTORY_FILE, "w") as f:
         json.dump(history, f, indent=4)
 
-# ----------------------------
+# ----------------------------------
 # SIDEBAR MENU
-# ----------------------------
-
+# ----------------------------------
 menu = st.sidebar.selectbox(
-    "Choose Translator Mode",
+    "Choose Mode",
     [
         "Text Translator",
         "Image Translator",
@@ -88,15 +77,14 @@ menu = st.sidebar.selectbox(
     ]
 )
 
-# =========================================================
+# ==================================
 # TEXT TRANSLATOR
-# =========================================================
-
+# ==================================
 if menu == "Text Translator":
 
     st.header("📝 Text Translator")
 
-    text = st.text_area("Enter text")
+    text = st.text_area("Enter Text")
 
     lang_name = st.selectbox(
         "Select Language",
@@ -105,7 +93,7 @@ if menu == "Text Translator":
 
     lang = languages[lang_name]
 
-    if st.button("Translate Text"):
+    if st.button("Translate"):
 
         if text.strip() != "":
 
@@ -116,65 +104,67 @@ if menu == "Text Translator":
 
             st.success(translated)
 
-            save_history(text, translated, lang_name)
+            save_history(
+                text,
+                translated,
+                lang_name
+            )
 
             st.download_button(
                 "Download Translation",
                 translated,
-                file_name="translated.txt"
+                file_name="translation.txt"
             )
 
-# =========================================================
+# ==================================
 # IMAGE TRANSLATOR
-# =========================================================
-
+# ==================================
 elif menu == "Image Translator":
 
     st.header("🖼️ Image Translator")
 
     uploaded_file = st.file_uploader(
         "Upload Image",
-        type=["png", "jpg", "jpeg"]
+        type=["jpg", "jpeg", "png"]
     )
 
     lang_name = st.selectbox(
-        "Select Target Language",
+        "Select Language",
         list(languages.keys())
     )
 
     lang = languages[lang_name]
 
-    if uploaded_file is not None:
+    if uploaded_file:
 
         image = Image.open(uploaded_file)
 
-        st.image(image, caption="Uploaded Image")
+        st.image(image)
 
         extracted_text = pytesseract.image_to_string(image)
 
         st.subheader("Extracted Text")
         st.write(extracted_text)
 
-        translated = translator.translate(
-            extracted_text,
-            dest=lang
-        ).text
+        if extracted_text.strip() != "":
 
-        st.subheader("Translated Text")
-        st.success(translated)
+            translated = translator.translate(
+                extracted_text,
+                dest=lang
+            ).text
 
-        save_history(extracted_text, translated, lang_name)
+            st.subheader("Translated Text")
+            st.success(translated)
 
-        st.download_button(
-            "Download Translation",
-            translated,
-            file_name="image_translation.txt"
-        )
+            save_history(
+                extracted_text,
+                translated,
+                lang_name
+            )
 
-# =========================================================
+# ==================================
 # VOICE TRANSLATOR
-# =========================================================
-
+# ==================================
 elif menu == "Voice Translator":
 
     st.header("🎤 Voice Translator")
@@ -190,13 +180,15 @@ elif menu == "Voice Translator":
 
         recognizer = sr.Recognizer()
 
-        with sr.Microphone() as source:
+        try:
+            with sr.Microphone() as source:
 
-            st.info("Speak now...")
+                st.info("Speak Now...")
 
-            audio = recognizer.listen(source)
-
-            try:
+                audio = recognizer.listen(
+                    source,
+                    timeout=5
+                )
 
                 text = recognizer.recognize_google(audio)
 
@@ -211,29 +203,37 @@ elif menu == "Voice Translator":
                 st.subheader("Translated Text")
                 st.success(translated)
 
-                save_history(text, translated, lang_name)
+                save_history(
+                    text,
+                    translated,
+                    lang_name
+                )
 
-                tts = gTTS(translated, lang=lang)
+                tts = gTTS(
+                    translated,
+                    lang=lang
+                )
 
-                temp_audio = tempfile.NamedTemporaryFile(
+                temp_file = tempfile.NamedTemporaryFile(
                     delete=False,
                     suffix=".mp3"
                 )
 
-                tts.save(temp_audio.name)
+                tts.save(temp_file.name)
 
-                audio_file = open(temp_audio.name, "rb")
+                audio_file = open(
+                    temp_file.name,
+                    "rb"
+                )
 
                 st.audio(audio_file.read())
 
-            except Exception as e:
+        except Exception as e:
+            st.error(f"Error: {e}")
 
-                st.error(f"Error: {e}")
-
-# =========================================================
+# ==================================
 # LIVE CAMERA TRANSLATOR
-# =========================================================
-
+# ==================================
 elif menu == "Live Camera Translator":
 
     st.header("📷 Live Camera Translator")
@@ -249,7 +249,7 @@ elif menu == "Live Camera Translator":
 
         cap = cv2.VideoCapture(0)
 
-        st.warning("Press Q on keyboard to stop camera")
+        st.warning("Press Q to stop camera")
 
         while True:
 
@@ -258,7 +258,10 @@ elif menu == "Live Camera Translator":
             if not ret:
                 break
 
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(
+                frame,
+                cv2.COLOR_BGR2GRAY
+            )
 
             text = pytesseract.image_to_string(gray)
 
@@ -271,7 +274,7 @@ elif menu == "Live Camera Translator":
 
                 cv2.putText(
                     frame,
-                    translated[:50],
+                    translated[:40],
                     (20, 50),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1,
@@ -279,7 +282,10 @@ elif menu == "Live Camera Translator":
                     2
                 )
 
-            cv2.imshow("Live Translator", frame)
+            cv2.imshow(
+                "Live Translator",
+                frame
+            )
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
@@ -287,24 +293,20 @@ elif menu == "Live Camera Translator":
         cap.release()
         cv2.destroyAllWindows()
 
-# =========================================================
+# ==================================
 # HISTORY
-# =========================================================
-
+# ==================================
 elif menu == "History":
 
     st.header("📜 Translation History")
 
     with open(HISTORY_FILE, "r") as f:
-
         history = json.load(f)
 
     if len(history) == 0:
-
-        st.info("No history available")
+        st.info("No History Found")
 
     else:
-
         for item in reversed(history):
 
             st.subheader(f"🌐 {item['language']}")
