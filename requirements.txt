@@ -1,0 +1,8 @@
+streamlit
+opencv-python
+pytesseract
+pillow
+googletrans==4.0.0-rc1
+SpeechRecognition
+gtts
+pyaudio
